@@ -784,6 +784,18 @@ ul {
   line-height: 1.8;
 }
 
+.contact-website {
+  font-size: 1rem;
+  margin-bottom: 8px;
+}
+
+.contact-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 .contact-socials {
   display: flex;
   justify-content: center;
