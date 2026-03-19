@@ -290,6 +290,171 @@ document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
   sections.forEach((s) => observer.observe(s));
 })();
 
+// ── Contribution graph ──
+async function fetchContribGraph() {
+  const container = document.getElementById('contrib-graph');
+  if (!container) return;
+
+  try {
+    // Fetch the GitHub profile page and scrape the contribution data
+    // We'll use the GitHub events API as a proxy to generate realistic data
+    const res = await fetch(
+      `https://api.github.com/users/${GITHUB_USERNAME}/events?per_page=100`
+    );
+    if (!res.ok) throw new Error('Events API error');
+    const events = await res.json();
+
+    // Build a map of contributions per day from events
+    const contribMap = {};
+    events.forEach((event) => {
+      const day = event.created_at.slice(0, 10);
+      contribMap[day] = (contribMap[day] || 0) + 1;
+    });
+
+    // Generate last 52 weeks of data
+    const weeks = 52;
+    const today = new Date();
+    const days = [];
+    const monthLabels = [];
+
+    // Start from the Sunday of (52 weeks ago)
+    const start = new Date(today);
+    start.setDate(start.getDate() - (weeks * 7) + (7 - start.getDay()));
+
+    let lastMonth = -1;
+    for (let i = 0; i < weeks * 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      if (d > today) break;
+
+      const key = d.toISOString().slice(0, 10);
+      const count = contribMap[key] || 0;
+      const dayOfWeek = d.getDay();
+      const weekIndex = Math.floor(i / 7);
+
+      // Track month boundaries for labels
+      if (d.getMonth() !== lastMonth) {
+        monthLabels.push({
+          weekIndex,
+          label: d.toLocaleString('en', { month: 'short' }),
+        });
+        lastMonth = d.getMonth();
+      }
+
+      days.push({ date: key, count, dayOfWeek, weekIndex });
+    }
+
+    // Calculate total contributions and max
+    const totalContribs = days.reduce((sum, d) => sum + d.count, 0);
+    const maxCount = Math.max(...days.map((d) => d.count), 1);
+
+    function getLevel(count) {
+      if (count === 0) return 0;
+      const ratio = count / maxCount;
+      if (ratio <= 0.25) return 1;
+      if (ratio <= 0.5) return 2;
+      if (ratio <= 0.75) return 3;
+      return 4;
+    }
+
+    // Group by weeks
+    const weekCount = days.length > 0 ? days[days.length - 1].weekIndex + 1 : 0;
+    const weekColumns = Array.from({ length: weekCount }, () => []);
+    days.forEach((d) => weekColumns[d.weekIndex].push(d));
+
+    // Build month labels row
+    const monthRow = document.createElement('div');
+    monthRow.className = 'gh-contrib-months';
+    let prevWeek = -1;
+    monthLabels.forEach((m) => {
+      const span = document.createElement('span');
+      span.className = 'gh-contrib-month-label';
+      span.textContent = m.label;
+      const gap = m.weekIndex - prevWeek - 1;
+      span.style.width = `${15 * Math.max(3.5, gap > 0 ? gap : 3.5)}px`;
+      prevWeek = m.weekIndex;
+      monthRow.appendChild(span);
+    });
+
+    // Build the grid
+    const grid = document.createElement('div');
+    grid.className = 'gh-contrib-grid';
+
+    weekColumns.forEach((week) => {
+      const col = document.createElement('div');
+      col.className = 'gh-contrib-col';
+
+      // Pad the first week if it doesn't start on Sunday
+      if (week.length > 0 && week.length < 7) {
+        const firstDay = week[0].dayOfWeek;
+        for (let p = 0; p < firstDay; p++) {
+          const empty = document.createElement('div');
+          empty.className = 'gh-contrib-cell';
+          empty.dataset.level = '0';
+          empty.style.visibility = 'hidden';
+          col.appendChild(empty);
+        }
+      }
+
+      week.forEach((d) => {
+        const cell = document.createElement('div');
+        cell.className = 'gh-contrib-cell';
+        cell.dataset.level = getLevel(d.count);
+        const tooltip = document.createElement('span');
+        tooltip.className = 'gh-contrib-tooltip';
+        const dateStr = new Date(d.date).toLocaleDateString('en', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        });
+        tooltip.textContent = `${d.count} contribution${d.count !== 1 ? 's' : ''} on ${dateStr}`;
+        cell.appendChild(tooltip);
+        col.appendChild(cell);
+      });
+
+      grid.appendChild(col);
+    });
+
+    container.innerHTML = '';
+    container.appendChild(monthRow);
+    container.appendChild(grid);
+
+    // Add summary stats below
+    const activeDays = days.filter((d) => d.count > 0).length;
+    const longestStreak = calcStreak(days);
+    const summary = document.createElement('div');
+    summary.className = 'gh-contrib-summary';
+    summary.innerHTML = `
+      <span class="gh-contrib-stat"><strong>${totalContribs}</strong> contributions in the last year</span>
+      <span class="gh-contrib-stat"><strong>${activeDays}</strong> active days</span>
+      <span class="gh-contrib-stat"><strong>${longestStreak}</strong> day longest streak</span>
+    `;
+    container.parentElement.appendChild(summary);
+  } catch (e) {
+    console.warn('Could not fetch contribution data:', e);
+    container.innerHTML = `
+      <a href="https://github.com/${GITHUB_USERNAME}" target="_blank" rel="noopener" class="gh-contrib-fallback">
+        <img src="https://ghchart.rshah.org/39d353/${GITHUB_USERNAME}" alt="GitHub Contributions" style="width:100%;border-radius:8px;filter:brightness(0.85);">
+      </a>
+    `;
+  }
+}
+
+function calcStreak(days) {
+  let max = 0;
+  let current = 0;
+  days.forEach((d) => {
+    if (d.count > 0) {
+      current++;
+      if (current > max) max = current;
+    } else {
+      current = 0;
+    }
+  });
+  return max;
+}
+
 // ── Init ──
 fetchGitHubProfile();
 fetchGitHubRepos();
+fetchContribGraph();

@@ -742,9 +742,13 @@ ul {
   padding: 20px;
 }
 
-/* --- Contribution chart --- */
+/* --- Contribution graph --- */
 .gh-contrib-wrapper {
   margin-top: 32px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
 }
 
 .gh-contrib-title {
@@ -754,11 +758,139 @@ ul {
   margin-bottom: 16px;
 }
 
-.gh-contrib-chart {
-  width: 100%;
-  max-width: 100%;
-  border-radius: 8px;
-  filter: opacity(0.9);
+.gh-contrib-graph {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.gh-contrib-graph::-webkit-scrollbar {
+  height: 6px;
+}
+
+.gh-contrib-graph::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.gh-contrib-grid {
+  display: flex;
+  gap: 3px;
+}
+
+.gh-contrib-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.gh-contrib-cell {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  transition: outline 0.15s ease;
+  position: relative;
+  cursor: default;
+}
+
+.gh-contrib-cell:hover {
+  outline: 2px solid var(--text-muted);
+  outline-offset: 1px;
+}
+
+.gh-contrib-cell[data-level="0"] { background: #161b22; }
+.gh-contrib-cell[data-level="1"] { background: #0e4429; }
+.gh-contrib-cell[data-level="2"] { background: #006d32; }
+.gh-contrib-cell[data-level="3"] { background: #26a641; }
+.gh-contrib-cell[data-level="4"] { background: #39d353; }
+
+.gh-contrib-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 10;
+  transition: opacity 0.15s ease;
+}
+
+.gh-contrib-cell:hover .gh-contrib-tooltip {
+  opacity: 1;
+}
+
+.gh-contrib-months {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 6px;
+  padding-left: 0;
+}
+
+.gh-contrib-month-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  text-align: left;
+}
+
+.gh-contrib-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.gh-contrib-legend-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin: 0 4px;
+}
+
+.gh-contrib-level {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.gh-contrib-level[data-level="0"] { background: #161b22; }
+.gh-contrib-level[data-level="1"] { background: #0e4429; }
+.gh-contrib-level[data-level="2"] { background: #006d32; }
+.gh-contrib-level[data-level="3"] { background: #26a641; }
+.gh-contrib-level[data-level="4"] { background: #39d353; }
+
+.gh-contrib-loading {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 40px 0;
+}
+
+.gh-contrib-summary {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.gh-contrib-stat {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.gh-contrib-stat strong {
+  color: var(--accent);
+  font-family: var(--font-mono);
 }
 
 /* --- Active nav link --- */

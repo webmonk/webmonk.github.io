@@ -160,13 +160,19 @@
         <div class="gh-profile-loading">Loading GitHub profile...</div>
       </div>
       <div class="gh-contrib-wrapper">
-        <h3 class="gh-contrib-title">Contribution Graph</h3>
-        <img
-          src="https://ghchart.rshah.org/6ee7b7/webmonk"
-          alt="GitHub Contribution Graph"
-          class="gh-contrib-chart"
-          loading="lazy"
-        />
+        <h3 class="gh-contrib-title">Contribution Activity</h3>
+        <div class="gh-contrib-graph" id="contrib-graph">
+          <div class="gh-contrib-loading">Loading contributions...</div>
+        </div>
+        <div class="gh-contrib-legend">
+          <span class="gh-contrib-legend-label">Less</span>
+          <span class="gh-contrib-level" data-level="0"></span>
+          <span class="gh-contrib-level" data-level="1"></span>
+          <span class="gh-contrib-level" data-level="2"></span>
+          <span class="gh-contrib-level" data-level="3"></span>
+          <span class="gh-contrib-level" data-level="4"></span>
+          <span class="gh-contrib-legend-label">More</span>
+        </div>
       </div>
     </div>
   </section>
