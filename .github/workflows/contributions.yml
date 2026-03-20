@@ -1,0 +1,80 @@
+name: Update Contribution Data
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # every 6 hours
+  workflow_dispatch: # manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  update-contributions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch contribution data
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const query = `
+              query($username: String!) {
+                user(login: $username) {
+                  contributionsCollection {
+                    contributionCalendar {
+                      totalContributions
+                      weeks {
+                        contributionDays {
+                          contributionCount
+                          contributionLevel
+                          date
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+
+            const result = await github.graphql(query, {
+              username: 'webmonk'
+            });
+
+            const calendar = result.user.contributionsCollection.contributionCalendar;
+
+            const levelMap = {
+              NONE: 0,
+              FIRST_QUARTILE: 1,
+              SECOND_QUARTILE: 2,
+              THIRD_QUARTILE: 3,
+              FOURTH_QUARTILE: 4
+            };
+
+            const contributions = [];
+            for (const week of calendar.weeks) {
+              for (const day of week.contributionDays) {
+                contributions.push({
+                  date: day.date,
+                  count: day.contributionCount,
+                  level: levelMap[day.contributionLevel] ?? 0
+                });
+              }
+            }
+
+            const data = {
+              total: calendar.totalContributions,
+              contributions,
+              updatedAt: new Date().toISOString()
+            };
+
+            const fs = require('fs');
+            fs.writeFileSync('contributions.json', JSON.stringify(data));
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add contributions.json
+          git diff --cached --quiet || git commit -m "Update contribution data" && git push
