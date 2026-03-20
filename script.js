@@ -296,43 +296,35 @@ async function fetchContribGraph() {
   if (!container) return;
 
   try {
-    // Fetch the GitHub profile page and scrape the contribution data
-    // We'll use the GitHub events API as a proxy to generate realistic data
+    // Use the GitHub contributions API for full-year data
     const res = await fetch(
-      `https://api.github.com/users/${GITHUB_USERNAME}/events?per_page=100`
+      `https://github-contributions-api.jogruber.de/v4/${GITHUB_USERNAME}?y=last`
     );
-    if (!res.ok) throw new Error('Events API error');
-    const events = await res.json();
+    if (!res.ok) throw new Error('Contributions API error');
+    const data = await res.json();
 
-    // Build a map of contributions per day from events
-    const contribMap = {};
-    events.forEach((event) => {
-      const day = event.created_at.slice(0, 10);
-      contribMap[day] = (contribMap[day] || 0) + 1;
-    });
+    const contributions = data.contributions;
+    // contributions is an array of { date, count, level (0-4) }
 
-    // Generate last 52 weeks of data
-    const weeks = 52;
-    const today = new Date();
+    const totalContribs = data.total?.lastYear ?? contributions.reduce((s, d) => s + d.count, 0);
     const days = [];
     const monthLabels = [];
 
-    // Start from the Sunday of (52 weeks ago)
-    const start = new Date(today);
-    start.setDate(start.getDate() - (weeks * 7) + (7 - start.getDay()));
+    // Find the start date (should be ~1 year ago on a Sunday)
+    const sorted = [...contributions].sort((a, b) => a.date.localeCompare(b.date));
 
+    // Assign week indices and collect month labels
+    let weekIndex = 0;
     let lastMonth = -1;
-    for (let i = 0; i < weeks * 7; i++) {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      if (d > today) break;
+    let prevDayOfWeek = -1;
 
-      const key = d.toISOString().slice(0, 10);
-      const count = contribMap[key] || 0;
+    sorted.forEach((entry, i) => {
+      const d = new Date(entry.date + 'T00:00:00');
       const dayOfWeek = d.getDay();
-      const weekIndex = Math.floor(i / 7);
 
-      // Track month boundaries for labels
+      // New week starts on Sunday
+      if (i > 0 && dayOfWeek === 0) weekIndex++;
+
       if (d.getMonth() !== lastMonth) {
         monthLabels.push({
           weekIndex,
@@ -341,21 +333,16 @@ async function fetchContribGraph() {
         lastMonth = d.getMonth();
       }
 
-      days.push({ date: key, count, dayOfWeek, weekIndex });
-    }
+      days.push({
+        date: entry.date,
+        count: entry.count,
+        level: entry.level,
+        dayOfWeek,
+        weekIndex,
+      });
 
-    // Calculate total contributions and max
-    const totalContribs = days.reduce((sum, d) => sum + d.count, 0);
-    const maxCount = Math.max(...days.map((d) => d.count), 1);
-
-    function getLevel(count) {
-      if (count === 0) return 0;
-      const ratio = count / maxCount;
-      if (ratio <= 0.25) return 1;
-      if (ratio <= 0.5) return 2;
-      if (ratio <= 0.75) return 3;
-      return 4;
-    }
+      prevDayOfWeek = dayOfWeek;
+    });
 
     // Group by weeks
     const weekCount = days.length > 0 ? days[days.length - 1].weekIndex + 1 : 0;
@@ -380,11 +367,11 @@ async function fetchContribGraph() {
     const grid = document.createElement('div');
     grid.className = 'gh-contrib-grid';
 
-    weekColumns.forEach((week) => {
+    weekColumns.forEach((week, wi) => {
       const col = document.createElement('div');
       col.className = 'gh-contrib-col';
 
-      // Pad the first week if it doesn't start on Sunday
+      // Pad first/last week if incomplete
       if (week.length > 0 && week.length < 7) {
         const firstDay = week[0].dayOfWeek;
         for (let p = 0; p < firstDay; p++) {
@@ -399,15 +386,17 @@ async function fetchContribGraph() {
       week.forEach((d) => {
         const cell = document.createElement('div');
         cell.className = 'gh-contrib-cell';
-        cell.dataset.level = getLevel(d.count);
+        cell.dataset.level = d.level;
         const tooltip = document.createElement('span');
         tooltip.className = 'gh-contrib-tooltip';
-        const dateStr = new Date(d.date).toLocaleDateString('en', {
+        const dateStr = new Date(d.date + 'T00:00:00').toLocaleDateString('en', {
           month: 'short',
           day: 'numeric',
           year: 'numeric',
         });
-        tooltip.textContent = `${d.count} contribution${d.count !== 1 ? 's' : ''} on ${dateStr}`;
+        tooltip.textContent = d.count === 0
+          ? `No contributions on ${dateStr}`
+          : `${d.count} contribution${d.count !== 1 ? 's' : ''} on ${dateStr}`;
         cell.appendChild(tooltip);
         col.appendChild(cell);
       });
@@ -425,13 +414,14 @@ async function fetchContribGraph() {
     const summary = document.createElement('div');
     summary.className = 'gh-contrib-summary';
     summary.innerHTML = `
-      <span class="gh-contrib-stat"><strong>${totalContribs}</strong> contributions in the last year</span>
+      <span class="gh-contrib-stat"><strong>${totalContribs.toLocaleString()}</strong> contributions in the last year</span>
       <span class="gh-contrib-stat"><strong>${activeDays}</strong> active days</span>
       <span class="gh-contrib-stat"><strong>${longestStreak}</strong> day longest streak</span>
     `;
     container.parentElement.appendChild(summary);
   } catch (e) {
     console.warn('Could not fetch contribution data:', e);
+    // Fallback to ghchart image
     container.innerHTML = `
       <a href="https://github.com/${GITHUB_USERNAME}" target="_blank" rel="noopener" class="gh-contrib-fallback">
         <img src="https://ghchart.rshah.org/39d353/${GITHUB_USERNAME}" alt="GitHub Contributions" style="width:100%;border-radius:8px;filter:brightness(0.85);">
